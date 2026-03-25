@@ -41,7 +41,6 @@ interface MirageConfig {
 interface JobCandidate {
   directoryPath: string;
   sortKey: number;
-  files: string[];
   metadata: Map<string, string>;
 }
 
@@ -55,6 +54,10 @@ function parseBoolean(value: string | undefined, fallback = false): boolean {
 
 function normalizeKey(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function parseScalarValue(value: string): string {
+  return value.trim();
 }
 
 function collectLeafValues(input: unknown, prefix = "", output = new Map<string, string>()) {
@@ -120,6 +123,12 @@ function normalizeStatus(rawStatus: string | undefined): QueueJob["status"] {
   }
 
   const value = rawStatus.toLowerCase();
+  if (value === "true") {
+    return "spooling";
+  }
+  if (value === "false" || value === "0") {
+    return "queued";
+  }
   if (value.includes("pause")) {
     return "paused";
   }
@@ -206,31 +215,79 @@ async function parseXmlFile(xmlPath: string): Promise<Map<string, string>> {
   return collectLeafValues(parsed);
 }
 
+async function parseKeyValueFile(filePath: string): Promise<Map<string, string>> {
+  const text = await fs.readFile(filePath, "utf8");
+  const values = new Map<string, string>();
+
+  for (const line of text.split(/\r?\n/)) {
+    const separatorIndex = line.indexOf(":");
+    if (separatorIndex === -1) {
+      continue;
+    }
+
+    const key = line.slice(0, separatorIndex).trim();
+    const value = parseScalarValue(line.slice(separatorIndex + 1));
+    if (key && value) {
+      values.set(key, value);
+    }
+  }
+
+  return values;
+}
+
+async function parseMetadataFile(filePath: string): Promise<Map<string, string>> {
+  if (filePath.endsWith(".xml")) {
+    return parseXmlFile(filePath).catch(() => new Map<string, string>());
+  }
+
+  return parseKeyValueFile(filePath).catch(() => new Map<string, string>());
+}
+
 async function readJobCandidate(directoryPath: string): Promise<JobCandidate> {
   const stat = await fs.stat(directoryPath);
   const entries = await fs.readdir(directoryPath, { withFileTypes: true });
-  const files = entries
+  const metadata = new Map<string, string>();
+  const directFiles = entries
     .filter((entry) => entry.isFile())
     .map((entry) => entry.name)
     .sort((left, right) => left.localeCompare(right));
 
-  const metadata = new Map<string, string>();
-  for (const fileName of files) {
-    if (!fileName.endsWith(".xml")) {
-      continue;
-    }
-
-    const xmlPath = path.join(directoryPath, fileName);
-    const values = await parseXmlFile(xmlPath).catch(() => new Map<string, string>());
+  for (const fileName of directFiles) {
+    const filePath = path.join(directoryPath, fileName);
+    const values = await parseMetadataFile(filePath);
     for (const [key, value] of values.entries()) {
       metadata.set(`${fileName}.${key}`, value);
+      metadata.set(key, value);
+    }
+  }
+
+  for (const entry of entries.filter((child) => child.isDirectory())) {
+    const nestedDirectoryPath = path.join(directoryPath, entry.name);
+    const nestedEntries = await fs.readdir(nestedDirectoryPath, { withFileTypes: true });
+    for (const nestedEntry of nestedEntries) {
+      if (!nestedEntry.isFile()) {
+        continue;
+      }
+
+      const nestedPath = path.join(nestedDirectoryPath, nestedEntry.name);
+      if (!nestedPath.endsWith(".xml")) {
+        continue;
+      }
+
+      const values = await parseMetadataFile(nestedPath);
+      for (const [key, value] of values.entries()) {
+        metadata.set(`${entry.name}/${nestedEntry.name}.${key}`, value);
+        metadata.set(`${nestedEntry.name}.${key}`, value);
+        if (!metadata.has(key)) {
+          metadata.set(key, value);
+        }
+      }
     }
   }
 
   return {
     directoryPath,
     sortKey: stat.mtimeMs,
-    files,
     metadata
   };
 }
@@ -257,17 +314,30 @@ function pickPrinterName(candidate: JobCandidate, printers: MiragePrinter[]): st
 function toQueueJob(candidate: JobCandidate, position: number): QueueJob {
   const fallbackTimestamp = new Date(candidate.sortKey).toISOString();
   const rawStatus = firstMatchingValue(candidate.metadata, [
+    "consumer.progress.pagePhase",
+    "producer.active",
     "status",
     "jobStatus",
     "consumer.progress.status"
   ]);
+  const pageDescription = firstMatchingValue(candidate.metadata, [
+    "pageDescription.0",
+    "pageDescription"
+  ]);
+  const jobTitle = firstMatchingValue(candidate.metadata, ["jobInfo.jobTitle", "jobTitle", "title"]);
   const fileName =
-    firstMatchingValue(candidate.metadata, ["jobInfo.jobTitle", "jobTitle", "title"]) ??
+    jobTitle ||
+    pageDescription?.split(" - Page ")[0]?.split("/").pop() ||
     path.basename(candidate.directoryPath);
 
   return {
     jobId:
-      firstMatchingValue(candidate.metadata, ["jobID", "jobId", "ID.jobID"]) ??
+      firstMatchingValue(candidate.metadata, [
+        "jobInfo.jobUniqueID",
+        "jobID",
+        "jobId",
+        "ID.jobID"
+      ]) ??
       path.basename(candidate.directoryPath),
     fileName,
     source:
@@ -286,7 +356,7 @@ function toQueueJob(candidate: JobCandidate, position: number): QueueJob {
       "mediaType"
     ]),
     sourcePath: candidate.directoryPath,
-    rawStatus
+    rawStatus: rawStatus ?? firstMatchingValue(candidate.metadata, ["state.version"])
   };
 }
 
