@@ -1,1 +1,46 @@
 # Queuemaster9000
+
+Lightweight web app for monitoring Mirage print queues across multiple Macs.
+
+## Goals
+
+- run a small agent on each Mirage workstation
+- normalize queue state into one shared schema
+- push queue snapshots to a central ingest API
+- host the dashboard as a static site on GitHub Pages
+
+## Repo layout
+
+- `apps/dashboard` - static React dashboard intended for GitHub Pages
+- `apps/agent` - local macOS/Node agent that will read Mirage queue data
+- `apps/server` - ingest API for heartbeats and queue snapshots
+- `packages/shared` - shared queue types and mock data
+- `docs/architecture.md` - deployment and integration notes
+
+## Important constraint
+
+GitHub Pages can only host the dashboard. The ingest API cannot live on GitHub Pages, so the long-term shape is:
+
+1. GitHub Pages hosts the dashboard UI
+2. a separate API receives heartbeats from the agents
+3. the dashboard reads from that API
+
+The dashboard already supports this shape through `VITE_API_BASE_URL`. If that variable is missing, it falls back to mock data.
+
+## Getting started
+
+```bash
+npm install
+npm run dev:dashboard
+```
+
+In another terminal, once dependencies are installed:
+
+```bash
+npm run dev:server
+npm run dev:agent
+```
+
+## Next engineering question
+
+Mirage does not appear to expose a public queue API, so the main technical task is to determine which local queue/spool files or process outputs on macOS are stable enough for the agent to read.

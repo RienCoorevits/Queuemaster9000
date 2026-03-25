@@ -1,0 +1,17 @@
+{
+  "name": "queuemaster9000",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "build:dashboard": "npm run build --workspace @queuemaster/dashboard",
+    "dev:agent": "npm run dev --workspace @queuemaster/agent",
+    "dev:dashboard": "npm run dev --workspace @queuemaster/dashboard",
+    "dev:server": "npm run dev --workspace @queuemaster/server",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}
