@@ -126,7 +126,7 @@ export default function App() {
                     <tr>
                       <th>Job</th>
                       <th>Status</th>
-                      <th>Owner</th>
+                      <th>Source</th>
                       <th>Age</th>
                     </tr>
                   </thead>
@@ -136,9 +136,10 @@ export default function App() {
                         <td>
                           <strong>{job.fileName}</strong>
                           <div className="subtle">Position {job.position}</div>
+                          {job.paperName ? <div className="subtle">{job.paperName}</div> : null}
                         </td>
                         <td>{job.status}</td>
-                        <td>{job.owner}</td>
+                        <td>{job.source}</td>
                         <td>{formatRelativeAge(job.submittedAt)}</td>
                       </tr>
                     ))}

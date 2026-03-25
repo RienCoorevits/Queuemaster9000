@@ -3,10 +3,13 @@ export type JobStatus = "spooling" | "queued" | "printing" | "paused" | "error" 
 export interface QueueJob {
   jobId: string;
   fileName: string;
-  owner: string;
+  source: string;
   status: JobStatus;
   position: number;
   submittedAt: string;
+  paperName?: string;
+  sourcePath?: string;
+  rawStatus?: string;
 }
 
 export interface PrinterQueue {
@@ -60,18 +63,20 @@ export function createMockHeartbeat(machineId: string): AgentHeartbeat {
           {
             jobId: `${machineId}-job-1`,
             fileName: "poster-hero.tif",
-            owner: "rien",
+            source: "Adobe Photoshop",
             status: "printing",
             position: 1,
-            submittedAt: minutesAgo(4)
+            submittedAt: minutesAgo(4),
+            paperName: "Archival Matte Paper"
           },
           {
             jobId: `${machineId}-job-2`,
             fileName: "gallery-wrap.pdf",
-            owner: "studio",
+            source: "Adobe InDesign",
             status: "queued",
             position: 2,
-            submittedAt: minutesAgo(12)
+            submittedAt: minutesAgo(12),
+            paperName: "Velvet Fine Art Paper"
           }
         ]
       },
@@ -84,10 +89,11 @@ export function createMockHeartbeat(machineId: string): AgentHeartbeat {
               {
                 jobId: `${machineId}-job-3`,
                 fileName: "proof-sheet-03.pdf",
-                owner: "prepress",
+                source: "Adobe Illustrator",
                 status: "paused",
                 position: 1,
-                submittedAt: minutesAgo(20)
+                submittedAt: minutesAgo(20),
+                paperName: "Proofing Paper"
               }
             ]
           : []

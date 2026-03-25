@@ -1,10 +1,14 @@
+import { type AgentHeartbeat } from "@queuemaster/shared";
 import {
-  createMockHeartbeat,
-  type AgentHeartbeat
-} from "@queuemaster/shared";
+  buildMirageHeartbeat,
+  getDefaultMirageConfigPath
+} from "./mirage.js";
 
 const apiBaseUrl = process.env.API_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:8787";
-const machineId = process.env.MACHINE_ID ?? "mac-studio-01";
+const machineId = process.env.MACHINE_ID;
+const machineName = process.env.MACHINE_NAME;
+const location = process.env.LOCATION;
+const dryRun = process.argv.includes("--dry-run");
 
 async function sendHeartbeat(heartbeat: AgentHeartbeat) {
   const response = await fetch(`${apiBaseUrl}/api/heartbeat`, {
@@ -21,9 +25,19 @@ async function sendHeartbeat(heartbeat: AgentHeartbeat) {
 }
 
 async function main() {
-  const heartbeat = createMockHeartbeat(machineId);
+  const heartbeat = await buildMirageHeartbeat({
+    configPath: process.env.MIRAGE_CONFIG_PATH ?? getDefaultMirageConfigPath(),
+    queuePath: process.env.MIRAGE_QUEUE_PATH,
+    machineId,
+    machineName,
+    location
+  });
 
-  // Placeholder until we know how to reliably read Mirage queue state on macOS.
+  if (dryRun) {
+    console.log(JSON.stringify(heartbeat, null, 2));
+    return;
+  }
+
   await sendHeartbeat(heartbeat);
   console.log(`Heartbeat sent for ${heartbeat.machineName} to ${apiBaseUrl}`);
 }

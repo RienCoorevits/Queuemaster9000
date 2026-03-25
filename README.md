@@ -39,8 +39,16 @@ In another terminal, once dependencies are installed:
 ```bash
 npm run dev:server
 npm run dev:agent
+npm run inspect --workspace @queuemaster/agent
 ```
 
 ## Next engineering question
 
 Mirage does not appear to expose a public queue API, so the main technical task is to determine which local queue/spool files or process outputs on macOS are stable enough for the agent to read.
+
+On this machine, the first real integration path is now wired up:
+
+- Mirage config: `~/Library/Preferences/de.dinax.mirage.config`
+- Mirage queue directory: `~/Library/Application Support/Mirage/Mirage Queue/`
+
+The agent reads the config, discovers the printer list, scans the queue directory, and looks for job metadata in Mirage queue XML files such as `meta.xml` and `status.xml`.
