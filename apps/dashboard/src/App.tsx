@@ -6,10 +6,12 @@ import {
   isMachineStale
 } from "@queuemaster/shared";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
+const apiBaseUrl = configuredApiBaseUrl || (import.meta.env.DEV ? "" : null);
+const refreshIntervalMs = Number(import.meta.env.VITE_REFRESH_INTERVAL_MS ?? "5000");
 
 async function loadSnapshot(): Promise<DashboardSnapshot> {
-  if (!apiBaseUrl) {
+  if (apiBaseUrl === null) {
     return createMockSnapshot();
   }
 
@@ -27,22 +29,34 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
+    let timerId: number | undefined;
 
-    loadSnapshot()
-      .then((data) => {
+    const refresh = async () => {
+      try {
+        const data = await loadSnapshot();
         if (!cancelled) {
           setSnapshot(data);
+          setError(null);
         }
-      })
-      .catch((reason: unknown) => {
+      } catch (reason: unknown) {
         if (!cancelled) {
           setError(reason instanceof Error ? reason.message : "Unknown error");
-          setSnapshot(createMockSnapshot());
+          setSnapshot((currentSnapshot) => currentSnapshot ?? createMockSnapshot());
         }
-      });
+      } finally {
+        if (!cancelled && apiBaseUrl !== null) {
+          timerId = window.setTimeout(refresh, refreshIntervalMs);
+        }
+      }
+    };
+
+    void refresh();
 
     return () => {
       cancelled = true;
+      if (timerId) {
+        window.clearTimeout(timerId);
+      }
     };
   }, []);
 
@@ -90,7 +104,7 @@ export default function App() {
 
       <section className="banner-row">
         <div className="banner">
-          Source: {apiBaseUrl ? `API ${apiBaseUrl}` : "mock snapshot"}.
+          Source: {apiBaseUrl === null ? "mock snapshot" : apiBaseUrl || "local dev API proxy"}.
         </div>
         {error ? <div className="banner error">API fallback: {error}</div> : null}
       </section>

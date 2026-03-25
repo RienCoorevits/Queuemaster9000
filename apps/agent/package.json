@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "inspect": "tsx src/index.ts --dry-run",
+    "once": "tsx src/index.ts --once",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },

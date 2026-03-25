@@ -1,13 +1,15 @@
 import { createServer } from "node:http";
 import {
-  createMockSnapshot,
   type AgentHeartbeat,
   type DashboardSnapshot,
   heartbeatToMachineSnapshot
 } from "@queuemaster/shared";
 
 const port = Number(process.env.PORT ?? "8787");
-let snapshot: DashboardSnapshot = createMockSnapshot();
+let snapshot: DashboardSnapshot = {
+  generatedAt: new Date().toISOString(),
+  machines: []
+};
 
 function sendJson(response: import("node:http").ServerResponse, statusCode: number, body: unknown) {
   response.writeHead(statusCode, {

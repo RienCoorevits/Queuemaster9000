@@ -40,6 +40,7 @@ In another terminal, once dependencies are installed:
 npm run dev:server
 npm run dev:agent
 npm run inspect --workspace @queuemaster/agent
+npm run once --workspace @queuemaster/agent
 ```
 
 ## Next engineering question
@@ -52,3 +53,17 @@ On this machine, the first real integration path is now wired up:
 - Mirage queue directory: `~/Library/Application Support/Mirage/Mirage Queue/`
 
 The agent reads the config, discovers the printer list, scans the queue directory, and looks for job metadata in Mirage queue XML files such as `meta.xml` and `status.xml`.
+
+## Local live flow
+
+For local development, the dashboard proxies `/api` requests to the local server on `http://localhost:8787`, so the simplest live setup is:
+
+1. run `npm run dev:server`
+2. run `npm run dev:agent`
+3. run `npm run dev:dashboard`
+
+Useful agent options:
+
+- `npm run inspect --workspace @queuemaster/agent` - print the current heartbeat JSON without posting it
+- `npm run once --workspace @queuemaster/agent` - send one heartbeat immediately
+- `POLL_INTERVAL_MS=5000 npm run dev:agent` - poll Mirage every 5 seconds
