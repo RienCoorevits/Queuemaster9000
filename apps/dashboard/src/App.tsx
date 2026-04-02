@@ -5,11 +5,13 @@ import {
   isMachineStale
 } from "@queuemaster/shared";
 
+const isServicesWindow = new URLSearchParams(window.location.search).get("window") === "services";
 const runtimeApiBaseUrl = window.queuemasterDesktop?.getConfig().apiBaseUrl?.replace(/\/$/, "");
 const configuredApiBaseUrl =
   runtimeApiBaseUrl ?? import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
 const apiBaseUrl = configuredApiBaseUrl || (import.meta.env.DEV ? "" : null);
 const refreshIntervalMs = Number(import.meta.env.VITE_REFRESH_INTERVAL_MS ?? "5000");
+const desktopWindows = window.queuemasterDesktop?.windows;
 const desktopServices = window.queuemasterDesktop?.services;
 const connectivityMessage = "Cannot reach server or agent not installed.";
 
@@ -130,6 +132,152 @@ export default function App() {
         (!serviceStatus.agent.running || !serviceStatus.server.running)
     );
 
+  const installerSection =
+    desktopServices ? (
+      serviceStatus ? (
+        <section className="installer-grid">
+        <article className="installer-card">
+          <div className="installer-header">
+            <div>
+              <h2>Local Agent</h2>
+            </div>
+            <span className={serviceStatus.agent.running ? "pill online" : "pill stale"}>
+              {serviceStatus.agent.running ? "Running" : serviceStatus.agent.installed ? "Installed" : "Not installed"}
+            </span>
+          </div>
+          <p className="hero-copy">
+            Installs a launch agent that reads Mirage queue data on this machine and posts it to the selected server URL.
+          </p>
+          <label className="field">
+            <span>Server URL</span>
+            <input
+              value={agentApiBaseUrl}
+              onChange={(event) => setAgentApiBaseUrl(event.target.value)}
+              placeholder="http://127.0.0.1:8787"
+            />
+          </label>
+          <div className="button-row">
+            <button
+              onClick={() =>
+                void runServiceAction("install-agent", () =>
+                  desktopServices.installAgent({ apiBaseUrl: agentApiBaseUrl })
+                )
+              }
+              disabled={busyAction !== null}
+            >
+              Install local agent
+            </button>
+            <button
+              className="secondary"
+              onClick={() => void runServiceAction("uninstall-agent", () => desktopServices.uninstallAgent())}
+              disabled={busyAction !== null}
+            >
+              Remove
+            </button>
+            <button
+              className="secondary"
+              onClick={() => void refreshServiceStatus()}
+              disabled={busyAction !== null}
+            >
+              Refresh
+            </button>
+          </div>
+          <p className="subtle">LaunchAgent: {serviceStatus.agent.plistPath}</p>
+          {serviceStatus.agent.recentStderr ? (
+            <pre className="log-snippet">{serviceStatus.agent.recentStderr}</pre>
+          ) : null}
+        </article>
+
+        <article className="installer-card">
+          <div className="installer-header">
+            <div>
+              <h2>Local Server</h2>
+            </div>
+            <span className={serviceStatus.server.running ? "pill online" : "pill stale"}>
+              {serviceStatus.server.running ? "Running" : serviceStatus.server.installed ? "Installed" : "Not installed"}
+            </span>
+          </div>
+          <p className="hero-copy">
+            Installs a launch agent that runs the local ingest API. Use this on the machine that should act as the LAN server.
+          </p>
+          <label className="field">
+            <span>Port</span>
+            <input
+              value={serverPort}
+              onChange={(event) => setServerPort(event.target.value)}
+              placeholder="8787"
+            />
+          </label>
+          <div className="button-row">
+            <button
+              onClick={() => {
+                const parsedPort = Number(serverPort || "8787");
+                if (!Number.isInteger(parsedPort) || parsedPort <= 0 || parsedPort > 65535) {
+                  setServiceError("Server port must be a number between 1 and 65535.");
+                  return;
+                }
+
+                void runServiceAction("install-server", () =>
+                  desktopServices.installServer({ port: parsedPort })
+                );
+              }}
+              disabled={busyAction !== null}
+            >
+              Install local server
+            </button>
+            <button
+              className="secondary"
+              onClick={() => void runServiceAction("uninstall-server", () => desktopServices.uninstallServer())}
+              disabled={busyAction !== null}
+            >
+              Remove
+            </button>
+            <button
+              className="secondary"
+              onClick={() => void refreshServiceStatus()}
+              disabled={busyAction !== null}
+            >
+              Refresh
+            </button>
+          </div>
+          <p className="subtle">LaunchAgent: {serviceStatus.server.plistPath}</p>
+          {serviceStatus.server.recentStderr ? (
+            <pre className="log-snippet">{serviceStatus.server.recentStderr}</pre>
+          ) : null}
+        </article>
+        </section>
+      ) : (
+        <section className="banner-row">
+          <div className="banner">Loading local service status...</div>
+        </section>
+      )
+    ) : (
+      <section className="banner-row">
+        <div className="banner error">Local services are only available in the desktop app.</div>
+      </section>
+    );
+
+  if (isServicesWindow) {
+    return (
+      <main className="page-shell services-window-shell">
+        <header className="hero">
+          <div>
+            <p className="eyebrow">QueueMaster9000</p>
+            <h1>Local Services</h1>
+          </div>
+        </header>
+
+        {serviceError ? (
+          <section className="banner-row">
+            <div className="banner error">Installer: {serviceError}</div>
+          </section>
+        ) : null}
+
+        {installerSection}
+      </main>
+    );
+  }
+
   return (
     <main className="page-shell">
       <header className="hero">
@@ -140,19 +288,29 @@ export default function App() {
             Desktop dashboard for Mirage queue visibility across the local network.
           </p>
         </div>
-        <div className="status-card">
-          <div>
-            <span className="metric">{totals.machines}</span>
-            <span className="label">Machines</span>
+        <div className="header-tools">
+          <div className="status-card">
+            <div>
+              <span className="metric">{totals.machines}</span>
+              <span className="label">Machines</span>
+            </div>
+            <div>
+              <span className="metric">{totals.printers}</span>
+              <span className="label">Queues</span>
+            </div>
+            <div>
+              <span className="metric">{totals.jobs}</span>
+              <span className="label">Jobs</span>
+            </div>
           </div>
-          <div>
-            <span className="metric">{totals.printers}</span>
-            <span className="label">Queues</span>
-          </div>
-          <div>
-            <span className="metric">{totals.jobs}</span>
-            <span className="label">Jobs</span>
-          </div>
+          {desktopWindows ? (
+            <button
+              className="secondary services-launch-button"
+              onClick={() => void desktopWindows.openServices()}
+            >
+              Services
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -163,120 +321,6 @@ export default function App() {
         ) : null}
         {serviceError ? <div className="banner error">Installer: {serviceError}</div> : null}
       </section>
-
-      {desktopServices && serviceStatus ? (
-        <section className="installer-grid">
-          <article className="installer-card">
-            <div className="installer-header">
-              <div>
-                <h2>Local Agent</h2>
-              </div>
-              <span className={serviceStatus.agent.running ? "pill online" : "pill stale"}>
-                {serviceStatus.agent.running ? "Running" : serviceStatus.agent.installed ? "Installed" : "Not installed"}
-              </span>
-            </div>
-            <p className="hero-copy">
-              Installs a launch agent that reads Mirage queue data on this machine and posts it to the selected server URL.
-            </p>
-            <label className="field">
-              <span>Server URL</span>
-              <input
-                value={agentApiBaseUrl}
-                onChange={(event) => setAgentApiBaseUrl(event.target.value)}
-                placeholder="http://127.0.0.1:8787"
-              />
-            </label>
-            <div className="button-row">
-              <button
-                onClick={() =>
-                  void runServiceAction("install-agent", () =>
-                    desktopServices.installAgent({ apiBaseUrl: agentApiBaseUrl })
-                  )
-                }
-                disabled={busyAction !== null}
-              >
-                Install local agent
-              </button>
-              <button
-                className="secondary"
-                onClick={() => void runServiceAction("uninstall-agent", () => desktopServices.uninstallAgent())}
-                disabled={busyAction !== null}
-              >
-                Remove
-              </button>
-              <button
-                className="secondary"
-                onClick={() => void refreshServiceStatus()}
-                disabled={busyAction !== null}
-              >
-                Refresh
-              </button>
-            </div>
-            <p className="subtle">LaunchAgent: {serviceStatus.agent.plistPath}</p>
-            {serviceStatus.agent.recentStderr ? (
-              <pre className="log-snippet">{serviceStatus.agent.recentStderr}</pre>
-            ) : null}
-          </article>
-
-          <article className="installer-card">
-            <div className="installer-header">
-              <div>
-                <h2>Local Server</h2>
-              </div>
-              <span className={serviceStatus.server.running ? "pill online" : "pill stale"}>
-                {serviceStatus.server.running ? "Running" : serviceStatus.server.installed ? "Installed" : "Not installed"}
-              </span>
-            </div>
-            <p className="hero-copy">
-              Installs a launch agent that runs the local ingest API. Use this on the machine that should act as the LAN server.
-            </p>
-            <label className="field">
-              <span>Port</span>
-              <input
-                value={serverPort}
-                onChange={(event) => setServerPort(event.target.value)}
-                placeholder="8787"
-              />
-            </label>
-            <div className="button-row">
-              <button
-                onClick={() => {
-                  const parsedPort = Number(serverPort || "8787");
-                  if (!Number.isInteger(parsedPort) || parsedPort <= 0 || parsedPort > 65535) {
-                    setServiceError("Server port must be a number between 1 and 65535.");
-                    return;
-                  }
-
-                  void runServiceAction("install-server", () =>
-                    desktopServices.installServer({ port: parsedPort })
-                  );
-                }}
-                disabled={busyAction !== null}
-              >
-                Install local server
-              </button>
-              <button
-                className="secondary"
-                onClick={() => void runServiceAction("uninstall-server", () => desktopServices.uninstallServer())}
-                disabled={busyAction !== null}
-              >
-                Remove
-              </button>
-              <button
-                className="secondary"
-                onClick={() => void refreshServiceStatus()}
-                disabled={busyAction !== null}
-              >
-                Refresh
-              </button>
-            </div>
-            <p className="subtle">LaunchAgent: {serviceStatus.server.plistPath}</p>
-            {serviceStatus.server.recentStderr ? (
-              <pre className="log-snippet">{serviceStatus.server.recentStderr}</pre>
-            ) : null}
-          </article>
-        </section>
-      ) : null}
 
       <section className="machine-grid">
         {snapshot?.machines.map((machine) => (

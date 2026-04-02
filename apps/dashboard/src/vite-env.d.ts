@@ -14,6 +14,9 @@ interface Window {
     getConfig: () => {
       apiBaseUrl?: string;
     };
+    windows?: {
+      openServices: () => Promise<void>;
+    };
     services?: {
       getStatus: () => Promise<{
         agent: DesktopServiceStatus;

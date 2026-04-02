@@ -144,6 +144,7 @@ h3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   padding: 8px;
+  flex: 1;
 }
 
 .status-card > div {
@@ -182,6 +183,18 @@ h3 {
   background: rgba(127, 29, 29, 0.35);
   border-color: rgba(239, 68, 68, 0.45);
   color: #fecaca;
+}
+
+.header-tools {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.services-launch-button {
+  white-space: nowrap;
+  align-self: stretch;
+  min-width: 92px;
 }
 
 .machine-grid {
@@ -323,8 +336,38 @@ tbody tr:last-child td {
   padding-top: 4px;
 }
 
+.services-window-shell .hero {
+  grid-template-columns: 1fr;
+  max-width: none;
+}
+
+.services-window-shell .installer-grid {
+  grid-template-columns: 1fr;
+}
+
+.services-window-shell {
+  padding: 12px;
+}
+
+.services-window-shell .installer-card {
+  padding: 12px;
+}
+
+.services-window-shell .button-row {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
 @media (max-width: 960px) {
   .hero {
     grid-template-columns: 1fr;
+  }
+
+  .header-tools {
+    flex-direction: column;
+  }
+
+  .services-launch-button {
+    width: 100%;
   }
 }

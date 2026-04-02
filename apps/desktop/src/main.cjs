@@ -10,6 +10,10 @@ const execFile = promisify(execFileCallback);
 const devServerUrl = process.env.ELECTRON_RENDERER_URL ?? "http://localhost:5173";
 const apiBaseUrl = process.env.ELECTRON_API_BASE_URL ?? "http://localhost:8787";
 const useDevServer = process.env.ELECTRON_USE_DEV_SERVER === "true";
+const dashboardIndexPath = path.resolve(__dirname, "../../dashboard/dist/index.html");
+
+let mainWindow = null;
+let servicesWindow = null;
 
 const SERVICE_LABELS = {
   agent: "com.queuemaster9000.agent",
@@ -215,8 +219,18 @@ ipcMain.handle("queuemaster:services:install-server", async (_event, options) =>
 ipcMain.handle("queuemaster:services:uninstall-agent", async () => uninstallService("agent"));
 ipcMain.handle("queuemaster:services:uninstall-server", async () => uninstallService("server"));
 
+function loadRenderer(window, search = "") {
+  if (useDevServer) {
+    const url = new URL(devServerUrl);
+    url.search = search;
+    return window.loadURL(url.toString());
+  }
+
+  return window.loadFile(dashboardIndexPath, search ? { search } : undefined);
+}
+
 function createMainWindow() {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1440,
     height: 960,
     minWidth: 1100,
@@ -231,19 +245,64 @@ function createMainWindow() {
     }
   });
 
-  if (useDevServer) {
-    void mainWindow.loadURL(devServerUrl);
-  } else {
-    const dashboardIndexPath = path.resolve(__dirname, "../../dashboard/dist/index.html");
-    void mainWindow.loadFile(dashboardIndexPath);
-  }
+  void loadRenderer(mainWindow);
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+    if (servicesWindow && !servicesWindow.isDestroyed()) {
+      servicesWindow.close();
+    }
+  });
 
   if (process.env.ELECTRON_OPEN_DEVTOOLS === "true") {
     mainWindow.webContents.openDevTools({ mode: "detach" });
   }
 }
+
+function openServicesWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  if (servicesWindow && !servicesWindow.isDestroyed()) {
+    servicesWindow.focus();
+    return;
+  }
+
+  servicesWindow = new BrowserWindow({
+    width: 600,
+    height: 760,
+    minWidth: 600,
+    maxWidth: 600,
+    minHeight: 620,
+    title: "QueueMaster9000 Local Services",
+    alwaysOnTop: true,
+    autoHideMenuBar: true,
+    parent: mainWindow,
+    backgroundColor: "#09111f",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.cjs"),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  servicesWindow.setAlwaysOnTop(true);
+  void loadRenderer(servicesWindow, "?window=services");
+  servicesWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  servicesWindow.on("closed", () => {
+    servicesWindow = null;
+  });
+
+  if (process.env.ELECTRON_OPEN_DEVTOOLS === "true") {
+    servicesWindow.webContents.openDevTools({ mode: "detach" });
+  }
+}
+
+ipcMain.handle("queuemaster:windows:open-services", async () => {
+  openServicesWindow();
+});
 
 app.whenReady().then(() => {
   createMainWindow();
