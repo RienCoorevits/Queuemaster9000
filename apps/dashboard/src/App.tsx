@@ -169,7 +169,6 @@ export default function App() {
           <article className="installer-card">
             <div className="installer-header">
               <div>
-                <p className="eyebrow">This Machine</p>
                 <h2>Local Agent</h2>
               </div>
               <span className={serviceStatus.agent.running ? "pill online" : "pill stale"}>
@@ -222,7 +221,6 @@ export default function App() {
           <article className="installer-card">
             <div className="installer-header">
               <div>
-                <p className="eyebrow">This Machine</p>
                 <h2>Local Server</h2>
               </div>
               <span className={serviceStatus.server.running ? "pill online" : "pill stale"}>
