@@ -2,16 +2,14 @@
   "name": "@queuemaster/desktop",
   "private": true,
   "version": "0.1.0",
-  "type": "module",
-  "main": "src/main.mjs",
+  "main": "src/main.cjs",
   "scripts": {
-    "dev": "wait-on tcp:5173 && electron .",
-    "start": "electron .",
-    "build": "node -e \"console.log('Desktop shell build uses the dashboard bundle from apps/dashboard/dist.')\"",
+    "dev": "wait-on tcp:5173 && ELECTRON_USE_DEV_SERVER=true env -u ELECTRON_RUN_AS_NODE electron .",
+    "start": "env -u ELECTRON_RUN_AS_NODE electron .",
+    "build": "node ./scripts/build-runtime.mjs",
     "typecheck": "node -e \"process.exit(0)\""
   },
   "devDependencies": {
     "electron": "^33.3.1"
   }
 }
-

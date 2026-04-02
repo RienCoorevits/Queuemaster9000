@@ -52,6 +52,11 @@ The React dashboard remains its own app in `apps/dashboard`, and the Electron sh
 
 The desktop shell passes a runtime API base URL into the renderer. By default it uses `http://127.0.0.1:8787`, but you can point it at another LAN machine with `ELECTRON_API_BASE_URL`.
 
+The desktop app also exposes installer actions through Electron IPC so the UI can install/uninstall local LaunchAgent services for:
+
+- queue agent
+- ingest API server
+
 ## Mirage integration assumption
 
 Current assumption for v1:

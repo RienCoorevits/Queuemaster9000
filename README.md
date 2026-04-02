@@ -79,3 +79,22 @@ To start the main local stack in one command:
 ```bash
 npm run dev:app
 ```
+
+## In-app installation
+
+The Electron dashboard includes local installer controls:
+
+- `Install local agent` installs a LaunchAgent service on that machine.
+- `Install local server` installs a LaunchAgent service on that machine.
+
+Use this rollout model:
+
+1. Pick one Mac to be the LAN server and click `Install local server`.
+2. On each Mirage workstation, open the app and click `Install local agent`.
+3. Set each agent's Server URL to `http://<server-ip>:8787`.
+
+Installer runtime details:
+
+- Runtime scripts are bundled to `apps/desktop/runtime/agent.mjs` and `apps/desktop/runtime/server.mjs`.
+- Installed LaunchAgent files are created under `~/Library/LaunchAgents/`.
+- Logs are written to `~/Library/Application Support/QueueMaster9000/logs/`.

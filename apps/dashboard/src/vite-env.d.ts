@@ -14,5 +14,32 @@ interface Window {
     getConfig: () => {
       apiBaseUrl?: string;
     };
+    services?: {
+      getStatus: () => Promise<{
+        agent: DesktopServiceStatus;
+        server: DesktopServiceStatus;
+      }>;
+      installAgent: (options: {
+        apiBaseUrl?: string;
+        pollIntervalMs?: number;
+      }) => Promise<DesktopServiceStatus>;
+      installServer: (options: {
+        port?: number;
+      }) => Promise<DesktopServiceStatus>;
+      uninstallAgent: () => Promise<DesktopServiceStatus>;
+      uninstallServer: () => Promise<DesktopServiceStatus>;
+    };
   };
+}
+
+interface DesktopServiceStatus {
+  label: string;
+  installed: boolean;
+  running: boolean;
+  plistPath: string;
+  runtimeScriptPath: string;
+  stdoutPath: string;
+  stderrPath: string;
+  recentStdout: string;
+  recentStderr: string;
 }

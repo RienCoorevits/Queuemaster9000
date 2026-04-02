@@ -24,6 +24,37 @@ select {
   font: inherit;
 }
 
+button,
+input {
+  border: 1px solid rgba(121, 168, 255, 0.18);
+  border-radius: 12px;
+}
+
+button {
+  background: #79a8ff;
+  color: #09111f;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+button.secondary {
+  background: transparent;
+  color: #d8e4ff;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+input {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(9, 17, 31, 0.8);
+  color: #ebf2ff;
+}
+
 .page-shell {
   max-width: 1280px;
   margin: 0 auto;
@@ -32,7 +63,8 @@ select {
 
 .hero,
 .banner-row,
-.machine-grid {
+.machine-grid,
+.installer-grid {
   display: grid;
   gap: 20px;
 }
@@ -77,7 +109,8 @@ h1 {
 .status-card,
 .machine-card,
 .queue-card,
-.banner {
+.banner,
+.installer-card {
   background: rgba(15, 24, 42, 0.88);
   border: 1px solid rgba(121, 168, 255, 0.16);
   border-radius: 18px;
@@ -114,6 +147,53 @@ h1 {
 
 .machine-grid {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.installer-grid {
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  margin-bottom: 24px;
+}
+
+.installer-card {
+  padding: 20px;
+}
+
+.installer-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.field span {
+  color: #8da1c7;
+  font-size: 0.92rem;
+}
+
+.button-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.log-snippet {
+  margin: 16px 0 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(9, 17, 31, 0.8);
+  color: #ffb4b4;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid rgba(255, 120, 120, 0.2);
 }
 
 .machine-card {
