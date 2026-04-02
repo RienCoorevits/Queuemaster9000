@@ -5,3 +5,4 @@ dist
 .env.local
 coverage
 apps/desktop/runtime
+apps/desktop/release

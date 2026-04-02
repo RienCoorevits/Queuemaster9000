@@ -2,14 +2,50 @@
   "name": "@queuemaster/desktop",
   "private": true,
   "version": "0.1.0",
+  "description": "QueueMaster9000 desktop dashboard",
+  "author": "Rien Coorevits",
   "main": "src/main.cjs",
   "scripts": {
     "dev": "wait-on http-get://localhost:5173 && ELECTRON_USE_DEV_SERVER=true env -u ELECTRON_RUN_AS_NODE electron .",
     "start": "env -u ELECTRON_RUN_AS_NODE electron .",
     "build": "node ./scripts/build-runtime.mjs",
+    "dist:mac": "electron-builder --mac dmg zip --arm64",
     "typecheck": "node -e \"process.exit(0)\""
   },
   "devDependencies": {
-    "electron": "^33.3.1"
+    "electron": "33.3.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.queuemaster9000.desktop",
+    "productName": "QueueMaster9000",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../dashboard/dist",
+        "to": "dashboard",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "runtime",
+        "to": "runtime",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    }
   }
 }

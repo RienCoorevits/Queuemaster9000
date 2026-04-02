@@ -15,6 +15,22 @@ const desktopWindows = window.queuemasterDesktop?.windows;
 const desktopServices = window.queuemasterDesktop?.services;
 const connectivityMessage = "Cannot reach server or agent not installed.";
 
+type PrinterJobView = DashboardSnapshot["machines"][number]["queues"][number]["jobs"][number] & {
+  machineId: string;
+  machineName: string;
+  machineLocation: string;
+  machineLastSeenAt: string;
+};
+
+type PrinterView = {
+  printerId: string;
+  printerName: string;
+  machineCount: number;
+  pausedCount: number;
+  staleCount: number;
+  jobs: PrinterJobView[];
+};
+
 async function loadSnapshot(): Promise<DashboardSnapshot> {
   if (apiBaseUrl === null) {
     throw new Error(connectivityMessage);
@@ -108,21 +124,74 @@ export default function App() {
     void refreshServiceStatus();
   }, []);
 
+  const printerViews = useMemo(() => {
+    if (!snapshot) {
+      return [] as PrinterView[];
+    }
+
+    const printersById = new Map<string, PrinterView>();
+
+    snapshot.machines.forEach((machine) => {
+      machine.queues.forEach((queue) => {
+        const printerKey = (queue.printerName || queue.printerId).trim().toLowerCase();
+        let printer = printersById.get(printerKey);
+        if (!printer) {
+          printer = {
+            printerId: queue.printerId,
+            printerName: queue.printerName,
+            machineCount: 0,
+            pausedCount: 0,
+            staleCount: 0,
+            jobs: []
+          };
+          printersById.set(printerKey, printer);
+        }
+
+        printer.machineCount += 1;
+        if (queue.queuePaused) {
+          printer.pausedCount += 1;
+        }
+        if (isMachineStale(machine.lastSeenAt)) {
+          printer.staleCount += 1;
+        }
+
+        queue.jobs.forEach((job) => {
+          printer.jobs.push({
+            ...job,
+            machineId: machine.machineId,
+            machineName: machine.machineName,
+            machineLocation: machine.location,
+            machineLastSeenAt: machine.lastSeenAt
+          });
+        });
+      });
+    });
+
+    return Array.from(printersById.values())
+      .map((printer) => ({
+        ...printer,
+        jobs: [...printer.jobs].sort((a, b) => {
+          const timeDiff = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+          if (timeDiff !== 0) {
+            return timeDiff;
+          }
+          return a.machineName.localeCompare(b.machineName);
+        })
+      }))
+      .sort((a, b) => a.printerName.localeCompare(b.printerName));
+  }, [snapshot]);
+
   const totals = useMemo(() => {
     if (!snapshot) {
       return { machines: 0, printers: 0, jobs: 0 };
     }
 
-    return snapshot.machines.reduce(
-      (accumulator, machine) => {
-        accumulator.machines += 1;
-        accumulator.printers += machine.queues.length;
-        accumulator.jobs += machine.queues.reduce((sum, queue) => sum + queue.jobs.length, 0);
-        return accumulator;
-      },
-      { machines: 0, printers: 0, jobs: 0 }
-    );
-  }, [snapshot]);
+    return {
+      machines: snapshot.machines.length,
+      printers: printerViews.length,
+      jobs: printerViews.reduce((sum, printer) => sum + printer.jobs.length, 0)
+    };
+  }, [snapshot, printerViews]);
 
   const showConnectivityWarning =
     Boolean(error) ||
@@ -296,7 +365,7 @@ export default function App() {
             </div>
             <div>
               <span className="metric">{totals.printers}</span>
-              <span className="label">Queues</span>
+              <span className="label">Printers</span>
             </div>
             <div>
               <span className="metric">{totals.jobs}</span>
@@ -323,56 +392,59 @@ export default function App() {
       </section>
 
       <section className="machine-grid">
-        {snapshot?.machines.map((machine) => (
-          <article key={machine.machineId} className="machine-card">
-            <div className="machine-header">
-              <div>
-                <h2>{machine.machineName}</h2>
-                <p>{machine.location}</p>
-              </div>
-              <span className={isMachineStale(machine.lastSeenAt) ? "pill stale" : "pill online"}>
-                {isMachineStale(machine.lastSeenAt) ? "Stale" : "Online"}
-              </span>
-            </div>
-            <p className="last-seen">Last heartbeat {formatRelativeAge(machine.lastSeenAt)}</p>
+        {printerViews.map((printer) => {
+          const queueState =
+            printer.pausedCount === 0
+              ? "running"
+              : printer.pausedCount === printer.machineCount
+                ? "paused"
+                : "mixed";
 
-            {machine.queues.map((queue) => (
-              <div key={queue.printerId} className="queue-card">
-                <div className="queue-header">
-                  <div>
-                    <h3>{queue.printerName}</h3>
-                    <p>{queue.jobs.length} queued jobs</p>
-                  </div>
-                  <span className={`pill ${queue.queuePaused ? "paused" : "online"}`}>
-                    {queue.queuePaused ? "Paused" : "Running"}
-                  </span>
+          const sourcesOnline = printer.machineCount - printer.staleCount;
+
+          return (
+            <article key={printer.printerId} className="machine-card">
+              <div className="machine-header">
+                <div>
+                  <h2>{printer.printerName}</h2>
+                  <p>{printer.machineCount} computers reporting</p>
                 </div>
+                <span className={`pill ${queueState === "running" ? "online" : queueState}`}>
+                  {queueState === "running" ? "Running" : queueState === "paused" ? "Paused" : "Mixed"}
+                </span>
+              </div>
+              <p className="last-seen">
+                Sources online {sourcesOnline}/{printer.machineCount}
+              </p>
 
+              <div className="queue-card">
                 <table>
                   <thead>
                     <tr>
                       <th>Job</th>
                       <th>Status</th>
                       <th>Source</th>
+                      <th>Computer</th>
                       <th>Age</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {queue.jobs.map((job) => (
-                      <tr key={job.jobId}>
+                    {printer.jobs.map((job) => (
+                      <tr key={`${job.machineId}:${job.jobId}`}>
                         <td>
                           <strong>{job.fileName}</strong>
-                          <div className="subtle">Position {job.position}</div>
+                          <div className="subtle">Queue position {job.position}</div>
                           {job.paperName ? <div className="subtle">{job.paperName}</div> : null}
                         </td>
                         <td>{job.status}</td>
                         <td>{job.source}</td>
+                        <td>{job.machineName}</td>
                         <td>{formatRelativeAge(job.submittedAt)}</td>
                       </tr>
                     ))}
-                    {queue.jobs.length === 0 ? (
+                    {printer.jobs.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="empty-state">
+                        <td colSpan={5} className="empty-state">
                           Queue is empty.
                         </td>
                       </tr>
@@ -380,9 +452,9 @@ export default function App() {
                   </tbody>
                 </table>
               </div>
-            ))}
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </section>
     </main>
   );

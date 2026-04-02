@@ -10,6 +10,7 @@
     "build": "npm run build --workspaces --if-present",
     "build:dashboard": "npm run build --workspace @queuemaster/dashboard",
     "build:desktop": "npm run build --workspace @queuemaster/dashboard && npm run build --workspace @queuemaster/desktop",
+    "dist:mac": "npm run build:dashboard && npm run build --workspace @queuemaster/desktop && npm run dist:mac --workspace @queuemaster/desktop",
     "dev:app": "concurrently -k -n server,agent,desktop \"npm run dev:server\" \"npm run dev:agent\" \"npm run dev:desktop\"",
     "dev:agent": "npm run dev --workspace @queuemaster/agent",
     "dev:dashboard": "npm run dev --workspace @queuemaster/dashboard",

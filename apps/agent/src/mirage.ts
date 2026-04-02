@@ -104,6 +104,43 @@ function firstMatchingValue(metadata: Map<string, string>, candidates: string[])
   return undefined;
 }
 
+function matchingValues(metadata: Map<string, string>, candidate: string): string[] {
+  const normalizedCandidate = normalizeKey(candidate);
+  const values: string[] = [];
+
+  for (const [key, value] of metadata.entries()) {
+    if (!normalizeKey(key).endsWith(normalizedCandidate)) {
+      continue;
+    }
+
+    const parsed = parseScalarValue(value);
+    if (parsed) {
+      values.push(parsed);
+    }
+  }
+
+  return values;
+}
+
+function collectMatchingValues(metadata: Map<string, string>, candidates: string[]): string[] {
+  const values: string[] = [];
+  const seen = new Set<string>();
+
+  for (const candidate of candidates) {
+    for (const value of matchingValues(metadata, candidate)) {
+      const normalizedValue = value.trim().toLowerCase();
+      if (seen.has(normalizedValue)) {
+        continue;
+      }
+
+      seen.add(normalizedValue);
+      values.push(value);
+    }
+  }
+
+  return values;
+}
+
 function normalizeTimestamp(value: string | undefined, fallback: string): string {
   if (!value) {
     return fallback;
@@ -117,35 +154,70 @@ function normalizeTimestamp(value: string | undefined, fallback: string): string
   return parsed.toISOString();
 }
 
-function normalizeStatus(rawStatus: string | undefined): QueueJob["status"] {
-  if (!rawStatus) {
-    return "queued";
+function classifyStatusSignal(rawValue: string): { status: QueueJob["status"]; weight: number } | undefined {
+  const value = rawValue.trim().toLowerCase();
+  if (!value) {
+    return undefined;
   }
 
-  const value = rawStatus.toLowerCase();
-  if (value === "true") {
-    return "spooling";
-  }
-  if (value === "false" || value === "0") {
-    return "queued";
-  }
-  if (value.includes("pause")) {
-    return "paused";
-  }
-  if (value.includes("print") || value.includes("run")) {
-    return "printing";
-  }
   if (value.includes("error") || value.includes("warn") || value.includes("fail")) {
-    return "error";
+    return { status: "error", weight: 100 };
+  }
+  if (value.includes("pause") || value.includes("hold")) {
+    return { status: "paused", weight: 90 };
+  }
+  if (
+    value.includes("print") ||
+    value.includes("render") ||
+    value.includes("raster") ||
+    value.includes("run") ||
+    value.includes("process")
+  ) {
+    return { status: "printing", weight: 80 };
+  }
+  if (value.includes("spool") || value.includes("rip")) {
+    return { status: "spooling", weight: 70 };
   }
   if (value.includes("done") || value.includes("complete") || value.includes("finished")) {
-    return "done";
+    return { status: "done", weight: 60 };
   }
-  if (value.includes("spool")) {
-    return "spooling";
+  if (value.includes("queue") || value.includes("wait") || value.includes("pending")) {
+    return { status: "queued", weight: 50 };
   }
 
-  return "queued";
+  // Boolean-like values are weak signals and should not override richer status strings.
+  if (value === "true") {
+    return { status: "spooling", weight: 5 };
+  }
+  if (value === "false" || value === "0") {
+    return { status: "queued", weight: 1 };
+  }
+
+  return undefined;
+}
+
+function normalizeStatus(rawStatuses: string[]): { status: QueueJob["status"]; rawStatus?: string } {
+  if (rawStatuses.length === 0) {
+    return { status: "queued" };
+  }
+
+  let bestStatus: QueueJob["status"] = "queued";
+  let bestWeight = -1;
+  for (const rawStatus of rawStatuses) {
+    const classified = classifyStatusSignal(rawStatus);
+    if (!classified) {
+      continue;
+    }
+
+    if (classified.weight > bestWeight) {
+      bestStatus = classified.status;
+      bestWeight = classified.weight;
+    }
+  }
+
+  const rawStatus =
+    rawStatuses.length > 3 ? `${rawStatuses.slice(0, 3).join(" | ")} ...` : rawStatuses.join(" | ");
+  return { status: bestStatus, rawStatus };
 }
 
 async function pathExists(targetPath: string): Promise<boolean> {
@@ -313,13 +385,16 @@ function pickPrinterName(candidate: JobCandidate, printers: MiragePrinter[]): st
 
 function toQueueJob(candidate: JobCandidate, position: number): QueueJob {
   const fallbackTimestamp = new Date(candidate.sortKey).toISOString();
-  const rawStatus = firstMatchingValue(candidate.metadata, [
+  const rawStatuses = collectMatchingValues(candidate.metadata, [
     "consumer.progress.pagePhase",
-    "producer.active",
+    "consumer.progress.status",
     "status",
     "jobStatus",
-    "consumer.progress.status"
+    "jobInfo.jobStatus",
+    "state",
+    "producer.active"
   ]);
+  const normalizedStatus = normalizeStatus(rawStatuses);
   const pageDescription = firstMatchingValue(candidate.metadata, [
     "pageDescription.0",
     "pageDescription"
@@ -343,7 +418,7 @@ function toQueueJob(candidate: JobCandidate, position: number): QueueJob {
     source:
       firstMatchingValue(candidate.metadata, ["jobInfo.applicationName", "applicationName"]) ??
       "Mirage",
-    status: normalizeStatus(rawStatus),
+    status: normalizedStatus.status,
     position,
     submittedAt: normalizeTimestamp(
       firstMatchingValue(candidate.metadata, ["jobInfo.printDate", "printDate"]),
@@ -356,7 +431,7 @@ function toQueueJob(candidate: JobCandidate, position: number): QueueJob {
       "mediaType"
     ]),
     sourcePath: candidate.directoryPath,
-    rawStatus: rawStatus ?? firstMatchingValue(candidate.metadata, ["state.version"])
+    rawStatus: normalizedStatus.rawStatus
   };
 }
 

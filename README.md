@@ -98,3 +98,22 @@ Installer runtime details:
 - Runtime scripts are bundled to `apps/desktop/runtime/agent.mjs` and `apps/desktop/runtime/server.mjs`.
 - Installed LaunchAgent files are created under `~/Library/LaunchAgents/`.
 - Logs are written to `~/Library/Application Support/QueueMaster9000/logs/`.
+
+## Packaging for distribution (macOS)
+
+To build a distributable app package:
+
+```bash
+npm install
+npm run dist:mac
+```
+
+Artifacts are written to:
+
+- `apps/desktop/release/*.dmg`
+- `apps/desktop/release/*.zip`
+
+Notes:
+
+- The package includes the built dashboard UI and runtime bundles.
+- For deployment on other Macs without Gatekeeper warnings, sign and notarize the app with your Apple Developer credentials.

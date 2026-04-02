@@ -10,7 +10,6 @@ const execFile = promisify(execFileCallback);
 const devServerUrl = process.env.ELECTRON_RENDERER_URL ?? "http://localhost:5173";
 const apiBaseUrl = process.env.ELECTRON_API_BASE_URL ?? "http://localhost:8787";
 const useDevServer = process.env.ELECTRON_USE_DEV_SERVER === "true";
-const dashboardIndexPath = path.resolve(__dirname, "../../dashboard/dist/index.html");
 
 let mainWindow = null;
 let servicesWindow = null;
@@ -21,7 +20,19 @@ const SERVICE_LABELS = {
 };
 
 function getDesktopRuntimeDir() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, "runtime");
+  }
+
   return path.resolve(__dirname, "../runtime");
+}
+
+function getDashboardIndexPath() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, "dashboard", "index.html");
+  }
+
+  return path.resolve(__dirname, "../../dashboard/dist/index.html");
 }
 
 function getUserPaths() {
@@ -226,15 +237,15 @@ function loadRenderer(window, search = "") {
     return window.loadURL(url.toString());
   }
 
-  return window.loadFile(dashboardIndexPath, search ? { search } : undefined);
+  return window.loadFile(getDashboardIndexPath(), search ? { search } : undefined);
 }
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
-    width: 1440,
-    height: 960,
-    minWidth: 1100,
-    minHeight: 720,
+    width: 840,
+    height: 840,
+    minWidth: 620,
+    minHeight: 620,
     title: "QueueMaster9000",
     autoHideMenuBar: true,
     backgroundColor: "#09111f",
