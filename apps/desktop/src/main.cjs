@@ -7,8 +7,8 @@ const { promisify } = require("node:util");
 
 const execFile = promisify(execFileCallback);
 
-const devServerUrl = process.env.ELECTRON_RENDERER_URL ?? "http://127.0.0.1:5173";
-const apiBaseUrl = process.env.ELECTRON_API_BASE_URL ?? "http://127.0.0.1:8787";
+const devServerUrl = process.env.ELECTRON_RENDERER_URL ?? "http://localhost:5173";
+const apiBaseUrl = process.env.ELECTRON_API_BASE_URL ?? "http://localhost:8787";
 const useDevServer = process.env.ELECTRON_USE_DEV_SERVER === "true";
 
 const SERVICE_LABELS = {

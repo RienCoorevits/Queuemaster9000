@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   type DashboardSnapshot,
-  createMockSnapshot,
   formatRelativeAge,
   isMachineStale
 } from "@queuemaster/shared";
@@ -12,10 +11,11 @@ const configuredApiBaseUrl =
 const apiBaseUrl = configuredApiBaseUrl || (import.meta.env.DEV ? "" : null);
 const refreshIntervalMs = Number(import.meta.env.VITE_REFRESH_INTERVAL_MS ?? "5000");
 const desktopServices = window.queuemasterDesktop?.services;
+const connectivityMessage = "Cannot reach server or agent not installed.";
 
 async function loadSnapshot(): Promise<DashboardSnapshot> {
   if (apiBaseUrl === null) {
-    return createMockSnapshot();
+    throw new Error(connectivityMessage);
   }
 
   const response = await fetch(`${apiBaseUrl}/api/queues`);
@@ -82,8 +82,8 @@ export default function App() {
         }
       } catch (reason: unknown) {
         if (!cancelled) {
-          setError(reason instanceof Error ? reason.message : "Unknown error");
-          setSnapshot((currentSnapshot) => currentSnapshot ?? createMockSnapshot());
+          setError(reason instanceof Error ? reason.message : connectivityMessage);
+          setSnapshot(null);
         }
       } finally {
         if (!cancelled && apiBaseUrl !== null) {
@@ -122,6 +122,14 @@ export default function App() {
     );
   }, [snapshot]);
 
+  const showConnectivityWarning =
+    Boolean(error) ||
+    Boolean(
+      desktopServices &&
+        serviceStatus &&
+        (!serviceStatus.agent.running || !serviceStatus.server.running)
+    );
+
   return (
     <main className="page-shell">
       <header className="hero">
@@ -149,10 +157,10 @@ export default function App() {
       </header>
 
       <section className="banner-row">
-        <div className="banner">
-          Source: {apiBaseUrl === null ? "mock snapshot" : apiBaseUrl || "local dev API proxy"}.
-        </div>
-        {error ? <div className="banner error">API fallback: {error}</div> : null}
+        <div className="banner">Source: {apiBaseUrl ?? "not configured"}.</div>
+        {showConnectivityWarning ? (
+          <div className="banner error">{connectivityMessage}</div>
+        ) : null}
         {serviceError ? <div className="banner error">Installer: {serviceError}</div> : null}
       </section>
 
