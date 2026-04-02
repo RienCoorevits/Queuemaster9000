@@ -2,17 +2,21 @@
 
 ## Deployment shape
 
-The dashboard is designed to be a static site so it can be deployed to GitHub Pages. That creates one hard constraint:
+The dashboard now runs inside an Electron shell on macOS. The current deployment shape is LAN-first:
 
-- `apps/dashboard` can be hosted on GitHub Pages
-- `apps/server` cannot be hosted on GitHub Pages
+- `apps/desktop` hosts the operator UI
+- `apps/server` receives heartbeats and serves queue snapshots
+- `apps/agent` runs on each Mirage workstation
 
-That means production needs two deploy targets:
+That means a practical local deployment is:
 
-1. static dashboard
-2. ingest/query API
+1. one central Mac runs the ingest/query API
+2. each Mirage Mac runs the queue agent
+3. one or more operators open the Electron dashboard
 
-Reasonable API hosting options later:
+If you want remote access later, the API can still be moved to hosted infrastructure.
+
+Reasonable hosted API options later:
 
 - Cloudflare Workers
 - Fly.io
@@ -39,16 +43,14 @@ The shared package currently defines:
 
 This keeps the agent, server, and dashboard aligned.
 
-## GitHub Pages implications
+## Desktop app implications
 
-The dashboard Vite config uses `/Queuemaster9000/` as the base path when `GITHUB_PAGES=true`. That avoids broken asset paths after deployment.
+The React dashboard remains its own app in `apps/dashboard`, and the Electron shell in `apps/desktop` loads it in two modes:
 
-The dashboard also reads `VITE_API_BASE_URL`:
+- development: from the Vite dev server
+- runtime: from the built `apps/dashboard/dist/index.html`
 
-- if set, the UI queries the real API
-- if absent, the UI renders mock data
-
-This keeps local UI work unblocked before the ingest service is stable.
+The desktop shell passes a runtime API base URL into the renderer. By default it uses `http://127.0.0.1:8787`, but you can point it at another LAN machine with `ELECTRON_API_BASE_URL`.
 
 ## Mirage integration assumption
 

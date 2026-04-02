@@ -1,37 +1,37 @@
 # Queuemaster9000
 
-Lightweight web app for monitoring Mirage print queues across multiple Macs.
+Desktop app for monitoring Mirage print queues across multiple Macs.
 
 ## Goals
 
 - run a small agent on each Mirage workstation
 - normalize queue state into one shared schema
 - push queue snapshots to a central ingest API
-- host the dashboard as a static site on GitHub Pages
+- display the dashboard in an Electron window
 
 ## Repo layout
 
-- `apps/dashboard` - static React dashboard intended for GitHub Pages
+- `apps/dashboard` - React dashboard UI
+- `apps/desktop` - Electron shell for the dashboard
 - `apps/agent` - local macOS/Node agent that will read Mirage queue data
 - `apps/server` - ingest API for heartbeats and queue snapshots
 - `packages/shared` - shared queue types and mock data
 - `docs/architecture.md` - deployment and integration notes
 
-## Important constraint
+## Runtime shape
 
-GitHub Pages can only host the dashboard. The ingest API cannot live on GitHub Pages, so the long-term shape is:
+The current setup is LAN-first:
 
-1. GitHub Pages hosts the dashboard UI
-2. a separate API receives heartbeats from the agents
-3. the dashboard reads from that API
-
-The dashboard already supports this shape through `VITE_API_BASE_URL`. If that variable is missing, it falls back to mock data.
+1. each Mirage workstation runs the local agent
+2. one machine runs the ingest API
+3. the operator opens the dashboard in the Electron app
+4. the Electron app reads queue state from the API
 
 ## Getting started
 
 ```bash
 npm install
-npm run dev:dashboard
+npm run dev:desktop
 ```
 
 In another terminal, once dependencies are installed:
@@ -56,14 +56,26 @@ The agent reads the config, discovers the printer list, scans the queue director
 
 ## Local live flow
 
-For local development, the dashboard proxies `/api` requests to the local server on `http://localhost:8787`, so the simplest live setup is:
+For local development, the simplest live setup is:
 
 1. run `npm run dev:server`
 2. run `npm run dev:agent`
-3. run `npm run dev:dashboard`
+3. run `npm run dev:desktop`
 
 Useful agent options:
 
 - `npm run inspect --workspace @queuemaster/agent` - print the current heartbeat JSON without posting it
 - `npm run once --workspace @queuemaster/agent` - send one heartbeat immediately
 - `POLL_INTERVAL_MS=5000 npm run dev:agent` - poll Mirage every 5 seconds
+
+Useful desktop options:
+
+- `npm run dev:desktop` - start Vite and open the Electron window
+- `npm run start:desktop` - open Electron against the built dashboard in `apps/dashboard/dist`
+- `ELECTRON_API_BASE_URL=http://192.168.1.50:8787 npm run start:desktop` - point the desktop app at a LAN server
+
+To start the main local stack in one command:
+
+```bash
+npm run dev:app
+```

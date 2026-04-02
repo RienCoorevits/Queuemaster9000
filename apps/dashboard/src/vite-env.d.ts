@@ -8,3 +8,11 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+interface Window {
+  queuemasterDesktop?: {
+    getConfig: () => {
+      apiBaseUrl?: string;
+    };
+  };
+}

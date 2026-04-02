@@ -6,7 +6,9 @@ import {
   isMachineStale
 } from "@queuemaster/shared";
 
-const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
+const runtimeApiBaseUrl = window.queuemasterDesktop?.getConfig().apiBaseUrl?.replace(/\/$/, "");
+const configuredApiBaseUrl =
+  runtimeApiBaseUrl ?? import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
 const apiBaseUrl = configuredApiBaseUrl || (import.meta.env.DEV ? "" : null);
 const refreshIntervalMs = Number(import.meta.env.VITE_REFRESH_INTERVAL_MS ?? "5000");
 
@@ -83,7 +85,7 @@ export default function App() {
           <p className="eyebrow">QueueMaster9000</p>
           <h1>Mirage queue visibility across all print stations</h1>
           <p className="hero-copy">
-            Static dashboard for GitHub Pages, backed by a separate ingest API when ready.
+            Desktop dashboard for Mirage queue visibility across the local network.
           </p>
         </div>
         <div className="status-card">
