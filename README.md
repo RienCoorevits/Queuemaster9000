@@ -25,7 +25,7 @@ There is no central ingest server anymore. The shared folder is the transport la
 
 No Dropbox API integration is required for this setup. QueueMaster reads and writes local files, and Dropbox handles cross-device sync in the background.
 
-On first launch, QueueMaster opens a folder picker so you can choose the shared synced folder. That selection is then saved locally for later launches.
+By default, QueueMaster will use a repo-relative shared folder at `./QueueMaster Shared` next to `queuemaster.py`. If that folder is not available, QueueMaster opens a folder picker and saves the selected location locally for later launches.
 
 ## Default Mirage paths
 
@@ -42,7 +42,16 @@ Run this on a workstation that should both publish and show the dashboard:
 python3 queuemaster.py
 ```
 
-The first launch will prompt you to pick the shared Dropbox folder. After that, the saved folder is reused automatically.
+Recommended layout when the repo itself lives inside the Dropbox shared folder:
+
+```text
+QueueMaster Repo/
+├── queuemaster.py
+├── README.md
+└── QueueMaster Shared/
+```
+
+With that layout, no folder selection is needed. If `QueueMaster Shared` is missing, the app will prompt you to pick the shared Dropbox folder instead.
 
 Then open:
 
@@ -66,7 +75,8 @@ python3 queuemaster.py --mode dashboard
 
 ## Useful options
 
-- the shared folder is selected with a dialog on first launch and saved locally
+- `./QueueMaster Shared` next to `queuemaster.py` is used automatically when present
+- otherwise the shared folder is selected with a dialog and saved locally
 - `--shared-dir` still works as an override when needed
 - `--machine-id` sets the stable file name written into the shared folder
 - `--machine-name` changes the dashboard label for the workstation

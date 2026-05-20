@@ -37,6 +37,7 @@ DEFAULT_QUEUE_PATH = (
     / "Mirage"
     / "Mirage Queue"
 )
+DEFAULT_REPO_SHARED_DIR = Path(__file__).resolve().parent / "QueueMaster Shared"
 DEFAULT_SETTINGS_PATH = (
     Path.home()
     / "Library"
@@ -256,6 +257,9 @@ def resolve_shared_dir(args: argparse.Namespace) -> Path:
         settings["shared_dir"] = str(shared_dir)
         save_settings(settings)
         return shared_dir
+
+    if is_usable_shared_dir(DEFAULT_REPO_SHARED_DIR):
+        return DEFAULT_REPO_SHARED_DIR
 
     saved_dir = settings.get("shared_dir")
     if isinstance(saved_dir, str) and saved_dir.strip():
