@@ -1,119 +1,116 @@
-# Queuemaster9000
+# QueueMaster
 
-Desktop app for monitoring Mirage print queues across multiple Macs.
+Single-file Python app for Mirage queue visibility through a shared synced folder.
 
-## Goals
+## What it does
 
-- run a small agent on each Mirage workstation
-- normalize queue state into one shared schema
-- push queue snapshots to a central ingest API
-- display the dashboard in an Electron window
+The program has one job:
 
-## Repo layout
+1. read Mirage queue data from the local Mac
+2. write that workstation snapshot into a shared synced folder as JSON
+3. read every workstation snapshot from the same shared synced folder
+4. serve a local dashboard in the browser
 
-- `apps/dashboard` - React dashboard UI
-- `apps/desktop` - Electron shell for the dashboard
-- `apps/agent` - local macOS/Node agent that will read Mirage queue data
-- `apps/server` - ingest API for heartbeats and queue snapshots
-- `packages/shared` - shared queue types and mock data
-- `docs/architecture.md` - deployment and integration notes
+There is no central ingest server anymore. The shared folder is the transport layer.
 
-## Runtime shape
+## Files
 
-The current setup is LAN-first:
+- `queuemaster.py` - the entire app
 
-1. each Mirage workstation runs the local agent
-2. one machine runs the ingest API
-3. the operator opens the dashboard in the Electron app
-4. the Electron app reads queue state from the API
+## Requirements
 
-## Getting started
+- Python 3.10+
+- Dropbox Desktop installed and syncing a shared folder on each Mac
+- Mirage installed on any Mac that should publish its own queue state
 
-```bash
-npm install
-npm run dev:desktop
-```
+No Dropbox API integration is required for this setup. QueueMaster reads and writes local files, and Dropbox handles cross-device sync in the background.
 
-In another terminal, once dependencies are installed:
+On first launch, QueueMaster opens a folder picker so you can choose the shared synced folder. That selection is then saved locally for later launches.
 
-```bash
-npm run dev:server
-npm run dev:agent
-npm run inspect --workspace @queuemaster/agent
-npm run once --workspace @queuemaster/agent
-```
+## Default Mirage paths
 
-## Next engineering question
-
-Mirage does not appear to expose a public queue API, so the main technical task is to determine which local queue/spool files or process outputs on macOS are stable enough for the agent to read.
-
-On this machine, the first real integration path is now wired up:
+The app uses these defaults unless you override them:
 
 - Mirage config: `~/Library/Preferences/de.dinax.mirage.config`
-- Mirage queue directory: `~/Library/Application Support/Mirage/Mirage Queue/`
+- Mirage queue: `~/Library/Application Support/Mirage/Mirage Queue`
 
-The agent reads the config, discovers the printer list, scans the queue directory, and looks for job metadata in Mirage queue XML files such as `meta.xml` and `status.xml`.
+## Quick start
 
-## Local live flow
-
-For local development, the simplest live setup is:
-
-1. run `npm run dev:server`
-2. run `npm run dev:agent`
-3. run `npm run dev:desktop`
-
-Useful agent options:
-
-- `npm run inspect --workspace @queuemaster/agent` - print the current heartbeat JSON without posting it
-- `npm run once --workspace @queuemaster/agent` - send one heartbeat immediately
-- `POLL_INTERVAL_MS=5000 npm run dev:agent` - poll Mirage every 5 seconds
-
-Useful desktop options:
-
-- `npm run dev:desktop` - start Vite and open the Electron window
-- `npm run start:desktop` - open Electron against the built dashboard in `apps/dashboard/dist`
-- `ELECTRON_API_BASE_URL=http://192.168.1.50:8787 npm run start:desktop` - point the desktop app at a LAN server
-
-To start the main local stack in one command:
+Run this on a workstation that should both publish and show the dashboard:
 
 ```bash
-npm run dev:app
+python3 queuemaster.py
 ```
 
-## In-app installation
+The first launch will prompt you to pick the shared Dropbox folder. After that, the saved folder is reused automatically.
 
-The Electron dashboard includes local installer controls:
+Then open:
 
-- `Install local agent` installs a LaunchAgent service on that machine.
-- `Install local server` installs a LaunchAgent service on that machine.
+```text
+http://127.0.0.1:8866
+```
 
-Use this rollout model:
+## Useful modes
 
-1. Pick one Mac to be the LAN server and click `Install local server`.
-2. On each Mirage workstation, open the app and click `Install local agent`.
-3. Set each agent's Server URL to `http://<server-ip>:8787`.
-
-Installer runtime details:
-
-- Runtime scripts are bundled to `apps/desktop/runtime/agent.mjs` and `apps/desktop/runtime/server.mjs`.
-- Installed LaunchAgent files are created under `~/Library/LaunchAgents/`.
-- Logs are written to `~/Library/Application Support/QueueMaster9000/logs/`.
-
-## Packaging for distribution (macOS)
-
-To build a distributable app package:
+Publish only on a Mirage workstation:
 
 ```bash
-npm install
-npm run dist:mac
+python3 queuemaster.py --mode publish
 ```
 
-Artifacts are written to:
+Dashboard only on a Mac that should not read local Mirage data:
 
-- `apps/desktop/release/*.dmg`
-- `apps/desktop/release/*.zip`
+```bash
+python3 queuemaster.py --mode dashboard
+```
 
-Notes:
+## Useful options
 
-- The package includes the built dashboard UI and runtime bundles.
-- For deployment on other Macs without Gatekeeper warnings, sign and notarize the app with your Apple Developer credentials.
+- the shared folder is selected with a dialog on first launch and saved locally
+- `--shared-dir` still works as an override when needed
+- `--machine-id` sets the stable file name written into the shared folder
+- `--machine-name` changes the dashboard label for the workstation
+- `--location` sets the workstation location label
+- `--mirage-config-path` overrides the Mirage config file path
+- `--mirage-queue-path` overrides the Mirage queue directory
+- `--poll-interval-seconds` changes how often the workstation writes its snapshot
+- `--dashboard-host` changes the bind address
+- `--dashboard-port` changes the local dashboard port
+- `--refresh-seconds` changes the dashboard auto-refresh interval
+
+## Snapshot format
+
+Each workstation writes one JSON file into the shared folder. The filename is derived from `machine_id`, for example:
+
+```text
+mac-studio-a.json
+```
+
+The file contains:
+
+- workstation identity
+- timestamp of the last successful scan
+- printer queues
+- queue jobs discovered from Mirage queue metadata
+
+## Current assumptions
+
+- Dropbox sync is reliable enough for the snapshot-sharing layer
+- JSON is the transport format
+- one file per workstation is simpler than a shared aggregate file
+- Mirage queue metadata still uses the same local config and queue directory pattern already discovered in the previous version
+
+## Compatibility
+
+- `--dropbox-dir` still works as a legacy alias for `--shared-dir`
+- `DROPBOX_QUEUE_DIR` still works as a legacy environment variable
+- `SHARED_QUEUE_DIR` is the preferred environment variable going forward
+- the saved folder preference is stored in `~/Library/Application Support/QueueMaster/settings.json`
+
+## Validation
+
+Basic syntax check:
+
+```bash
+python3 -m py_compile queuemaster.py
+```

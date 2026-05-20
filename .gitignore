@@ -1,8 +1,8 @@
-node_modules
-dist
+__pycache__/
+*.py[cod]
+*.tmp
+*.swp
 .DS_Store
 .env
 .env.local
-coverage
-apps/desktop/runtime
-apps/desktop/release
+dropbox/
